@@ -147,7 +147,7 @@ xsDB.prototype.rename = function (fileName) {
 };
 
 let options = {
-  name: "persons.json",
+  name: "index.json",
   pretty: true,
   id: true,
 };
