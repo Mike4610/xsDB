@@ -17,6 +17,8 @@ module.exports = {
   },
 
   write: function (fileName, data) {
+    console.log(fileName)
+    console.log("file" + data)
     try {
       fs.writeFileSync(fileName, data);
     } catch (error) {

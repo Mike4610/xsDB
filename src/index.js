@@ -2,11 +2,12 @@ const file = require("./file");
 const utils = require("./utils");
 var _ = require("lodash");
 const id = require("shortid");
+const schema = require("schm");
 
 //INITIALIZE DATABASE
 function xsDB(options) {
-  this.db = utils.fileName(options.name);
-  this.options = options;
+  this.options = options === undefined ? {pretty: false, id: false, schema: false} : options
+  this.db = utils.fileName(this.options.name);
   this._ = _;
   this.init();
 }
@@ -22,6 +23,10 @@ xsDB.prototype.init = function () {
 
 //COLLECTION METHODS
 xsDB.prototype.insertOne = function (data) {
+  if (!_.isPlainObject(data)) {
+    console.error("Error. An object is expected.");
+    return;
+  }
   if (this.options.pretty) {
     this.options.id
       ? this.data.push(this._.assign({ id: id.generate() }, data))
@@ -46,14 +51,14 @@ xsDB.prototype.insertMany = function (data) {
         ? data.forEach((value) => {
             this.data.push(this._.assign({ id: id.generate() }, value));
           })
-        : this._.union(this.data, data);
+        : this.data.push(...data)
       file.write(this.db, JSON.stringify(this.data, null, 2));
     } else {
       this.options.id
         ? data.forEach((value) => {
             this.data.push(this._.assign({ id: id.generate() }, value));
           })
-        : this._.union(this.data, data);
+        : this.data.push(...data)
       file.write(this.db, JSON.stringify(this.data));
     }
   }
@@ -146,12 +151,34 @@ xsDB.prototype.rename = function (fileName) {
   this.db = newdbname;
 };
 
+//CREATE SCHEMA
+
+xsDB.prototype.createSchema = function (schema) {
+  this.schema = schema;
+};
+
+xsDB.prototype.a = async function (data) {
+  try {
+    await this.options.schema.validate(data);
+  } catch (error) {
+    console.error("Error. Make sure all fields are complete.");
+  }
+};
+
+const userSchema = schema({
+  name: String,
+  age: {
+    type: Number,
+    required: true,
+  },
+  height: Number,
+});
+
 let options = {
   name: "index.json",
   pretty: true,
   id: true,
+  schema: userSchema,
 };
 
-let xs = new xsDB(options);
-
-
+let xs = new xsDB();
