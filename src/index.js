@@ -6,7 +6,7 @@ const schema = require("schm");
 
 //INITIALIZE DATABASE
 function xsDB(options) {
-  this.options = options === undefined ? {pretty: false, id: false, schema: false} : options
+  this.options = utils.setOptions(options)
   this.db = utils.fileName(this.options.name);
   this._ = _;
   this.init();
@@ -19,33 +19,49 @@ xsDB.prototype.init = function () {
     file.create(this.db);
     this.data = [];
   }
+
+  if(this.options.schema) 
+    this.newSchema(this.options.schema)
 };
 
 //COLLECTION METHODS
-xsDB.prototype.insertOne = function (data) {
+xsDB.prototype.insertOne = async function (data) {
   if (!_.isPlainObject(data)) {
     console.error("Error. An object is expected.");
     return;
+  }else{
+    if(this.options.schema){
+      try {
+        await this.options.schema.validate(data);
+      } catch (error) {
+        console.error("Error. Make sure all fields are correct.");
+      }
+    }
+    if (this.options.pretty) {
+      this.options.id
+        ? this.data.push(this._.assign({ id: id.generate() }, data))
+        : this.data.push(data);
+      file.write(this.db, JSON.stringify(this.data, null, 2));
+    } else {
+      this.options.id
+        ? this.data.push(this._.assign({ id: id.generate() }, data))
+        : this.data.push(data);
+      file.write(this.db, JSON.stringify(this.data));
+    }
+    return this.data;
   }
-  if (this.options.pretty) {
-    this.options.id
-      ? this.data.push(this._.assign({ id: id.generate() }, data))
-      : this.data.push(data);
-    file.write(this.db, JSON.stringify(this.data, null, 2));
-  } else {
-    this.options.id
-      ? this.data.push(this._.assign({ id: id.generate() }, data))
-      : this.data.push(data);
-    file.write(this.db, JSON.stringify(this.data));
-  }
-  return this.data;
 };
 
-xsDB.prototype.insertMany = function (data) {
+xsDB.prototype.insertMany = async function (data) {
   if (!_.isArray(data)) {
     console.error("Error. An array is expected.");
     return;
   } else {
+    try {
+      await this.options.schema.validate(data);
+    } catch (error) {
+      console.error("Error. Make sure all fields are complete.");
+    }
     if (this.options.pretty) {
       this.options.id
         ? data.forEach((value) => {
@@ -152,33 +168,28 @@ xsDB.prototype.rename = function (fileName) {
 };
 
 //CREATE SCHEMA
-
-xsDB.prototype.createSchema = function (schema) {
-  this.schema = schema;
+xsDB.prototype.newSchema = function (schm) {
+  this.options.schema = schema(schm)
 };
 
-xsDB.prototype.a = async function (data) {
-  try {
-    await this.options.schema.validate(data);
-  } catch (error) {
-    console.error("Error. Make sure all fields are complete.");
-  }
-};
-
-const userSchema = schema({
-  name: String,
-  age: {
-    type: Number,
-    required: true,
+const userSchema  = {
+  name: {
+    type: String,
+    required: true
   },
-  height: Number,
-});
-
+  email: {
+    type: String,
+    required: true
+  },
+  password: {
+    type: String,
+    required: true
+  }
+}
 let options = {
   name: "index.json",
   pretty: true,
   id: true,
-  schema: userSchema,
 };
 
-let xs = new xsDB();
+let xs = new xsDB(options);
