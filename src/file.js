@@ -31,6 +31,7 @@ module.exports = {
     }
   },
   delete: function(fileName){
+
     try{
       fs.unlinkSync(fileName)
     }catch(error){
