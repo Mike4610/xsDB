@@ -1,12 +1,13 @@
 const file = require("./file");
 const utils = require("./utils");
-var _ = require("lodash");
+const crypto = require("./crypto");
+const _ = require("lodash");
 const id = require("shortid");
 const schema = require("schm");
 
 //INITIALIZE DATABASE
 function xsDB(options) {
-  this.options = utils.setOptions(options)
+  this.options = utils.setOptions(options);
   this.db = utils.fileName(this.options.name);
   this._ = _;
   this.init();
@@ -19,9 +20,14 @@ xsDB.prototype.init = function () {
     file.create(this.db);
     this.data = [];
   }
+  if (this.options.schema) this.newSchema(this.options.schema);
+};
 
-  if(this.options.schema) 
-    this.newSchema(this.options.schema)
+//READ/WRITE METHODS
+xsDB.prototype.set = function () {
+  this.options.pretty
+    ? file.write(this.db, JSON.stringify(this.data, null, 2))
+    : file.write(this.db, JSON.stringify(this.data));
 };
 
 //COLLECTION METHODS
@@ -29,25 +35,19 @@ xsDB.prototype.insertOne = async function (data) {
   if (!_.isPlainObject(data)) {
     console.error("Error. An object is expected.");
     return;
-  }else{
-    if(this.options.schema){
+  } else {
+    if (this.options.schema) {
       try {
         await this.options.schema.validate(data);
       } catch (error) {
         console.error("Error. Make sure all fields are correct.");
+        return;
       }
     }
-    if (this.options.pretty) {
-      this.options.id
-        ? this.data.push(this._.assign({ id: id.generate() }, data))
-        : this.data.push(data);
-      file.write(this.db, JSON.stringify(this.data, null, 2));
-    } else {
-      this.options.id
-        ? this.data.push(this._.assign({ id: id.generate() }, data))
-        : this.data.push(data);
-      file.write(this.db, JSON.stringify(this.data));
-    }
+    this.options.id
+      ? this.data.push(this._.assign({ id: id.generate() }, data))
+      : this.data.push(data);
+    this.set();
     return this.data;
   }
 };
@@ -57,28 +57,22 @@ xsDB.prototype.insertMany = async function (data) {
     console.error("Error. An array is expected.");
     return;
   } else {
-    try {
-      await this.options.schema.validate(data);
-    } catch (error) {
-      console.error("Error. Make sure all fields are complete.");
+    if (this.options.schema) {
+      try {
+        await this.options.schema.validate(data);
+      } catch (error) {
+        console.error("Error. Make sure all fields are complete.");
+        return;
+      }
     }
-    if (this.options.pretty) {
-      this.options.id
-        ? data.forEach((value) => {
-            this.data.push(this._.assign({ id: id.generate() }, value));
-          })
-        : this.data.push(...data)
-      file.write(this.db, JSON.stringify(this.data, null, 2));
-    } else {
-      this.options.id
-        ? data.forEach((value) => {
-            this.data.push(this._.assign({ id: id.generate() }, value));
-          })
-        : this.data.push(...data)
-      file.write(this.db, JSON.stringify(this.data));
-    }
+    this.options.id
+      ? data.forEach((value) => {
+          this.data.push(this._.assign({ id: id.generate() }, value));
+        })
+      : this.data.push(...data);
+    this.set();
+    return this.data;
   }
-  return this.data;
 };
 
 xsDB.prototype.findOne = function (key) {
@@ -156,6 +150,14 @@ xsDB.prototype.dataSize = function () {
   return file.size(this.db);
 };
 
+xsDB.prototype.count = function () {
+  let count = 0;
+  this.data.forEach((obj) => {
+    count++;
+  });
+  return count;
+};
+
 xsDB.prototype.copyTo = function (fileName) {
   let newdb = utils.fileName(fileName);
   file.copy(this.db, newdb);
@@ -167,29 +169,35 @@ xsDB.prototype.rename = function (fileName) {
   this.db = newdbname;
 };
 
-//CREATE SCHEMA
+xsDB.prototype.encryptOne = function (key, field, encKey) {
+  let obj = this.findOne(key);
+  console.log(obj);
+  let a = _.pickBy(obj, (key) => key.startsWith(field));
+  console.log(a);
+  let enc = crypto.encrypt(Object.values(a)[0], encKey);
+  value[field] = enc;
+  this._.assign(obj, value);
+  this.set();
+  return this.data;
+};
+
+xsDB.prototype.decryptOne = function (field, key) {};
+
 xsDB.prototype.newSchema = function (schm) {
-  this.options.schema = schema(schm)
+  this.options.schema = schema(schm);
 };
 
-const userSchema  = {
-  name: {
-    type: String,
-    required: true
-  },
-  email: {
-    type: String,
-    required: true
-  },
-  password: {
-    type: String,
-    required: true
-  }
+//CREATE DB
+function newDB(options) {
+  return new xsDB(options);
 }
-let options = {
-  name: "index.json",
-  pretty: true,
-  id: true,
-};
 
-let xs = new xsDB(options);
+module.exports = newDB;
+
+let xs = newDB();
+xs.insertOne({
+  name: "Micael",
+  email: "mike22vieiraa",
+  password: "inteligente",
+});
+xs.encryptOne({ name: "Micael" }, "password", "1234");

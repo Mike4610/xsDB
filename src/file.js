@@ -23,7 +23,6 @@ module.exports = {
       console.error(error)
     }
   },
-
   read: function(fileName){
     try{
       return JSON.parse(fs.readFileSync(fileName))
